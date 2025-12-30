@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [highlightId, setHighlightId] = useState<string | undefined>(undefined);
   const [isDark, setIsDark] = useState(false);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
   const hasAutoExpanded = useRef(false);
 
   const AUTO_EXPAND_DEPTH = 3;
@@ -82,6 +83,13 @@ const App: React.FC = () => {
   }, []);
 
   const focusOffsetX = selectedPerson && window.innerWidth >= 640 ? -200 : 0;
+  const isMobile = dimensions.width < 768;
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsSidebarOpen(true);
+    }
+  }, [isMobile]);
 
   // Theme Toggle
   useEffect(() => {
@@ -286,9 +294,28 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gray-50 dark:bg-neutral-900 text-bible-ink dark:text-gray-200 font-sans">
-      <div className="flex-shrink-0 z-40 h-full shadow-xl">
-         <Sidebar onSearch={handleSearch} toggleTheme={toggleTheme} isDark={isDark} onResetView={resetView} />
+    <div className="relative flex h-screen w-screen overflow-hidden bg-gray-50 dark:bg-neutral-900 text-bible-ink dark:text-gray-200 font-sans">
+      {isMobile && isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40"
+        />
+      )}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 h-full w-[85vw] max-w-80 transform bg-white dark:bg-neutral-900 shadow-xl transition-transform duration-300 md:static md:w-80 md:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+         <Sidebar
+            onSearch={handleSearch}
+            toggleTheme={toggleTheme}
+            isDark={isDark}
+            onResetView={resetView}
+            isMobile={isMobile}
+            onClose={() => setIsSidebarOpen(false)}
+         />
       </div>
       
       <div className="flex-1 flex flex-col relative h-full overflow-hidden">
@@ -299,6 +326,8 @@ const App: React.FC = () => {
                 selectedBook={selectedBook}
                 onBookClick={handleBookClick} 
                 onClearFilter={handleClearFilter}
+                onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
+                isSidebarOpen={isSidebarOpen}
             />
         </div>
 

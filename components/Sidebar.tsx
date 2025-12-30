@@ -7,6 +7,8 @@ interface SidebarProps {
   toggleTheme: () => void;
   isDark: boolean;
   onResetView: () => void;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
 const MAJOR_FIGURES = [
@@ -18,7 +20,7 @@ const MAJOR_FIGURES = [
     { name: "Solomon", role: "The Wise" },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark, onResetView }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark, onResetView, isMobile, onClose }) => {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showTribes, setShowTribes] = useState(false);
@@ -49,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
     
     if (normalizedId) {
         onSearch(normalizedId);
+        if (isMobile && onClose) onClose();
     } else {
         alert("Could not find that person in the record.");
     }
@@ -61,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
 
     if (normalizedId) {
         onSearch(normalizedId);
+        if (isMobile && onClose) onClose();
     } else {
         alert("Could not find that person in the record.");
     }
@@ -71,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
   };
 
   return (
-    <div className="w-full md:w-80 h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-800 z-10 shadow-xl">
+    <div className="w-full h-full flex flex-col bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-800 z-10 shadow-xl">
       {/* Header */}
       <div className="p-6 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center bg-bible-paper dark:bg-neutral-900">
         <div>
@@ -82,6 +86,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
             {isDark ? <Sun size={20} className="text-bible-gold" /> : <Moon size={20} className="text-bible-ink" />}
         </button>
       </div>
+      {isMobile && onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="md:hidden px-4 py-3 text-xs font-medium text-bible-ink dark:text-gray-200 bg-bible-paper dark:bg-neutral-800 border-b border-gray-100 dark:border-neutral-800"
+        >
+          Close Menu
+        </button>
+      )}
 
       {/* Search */}
       <div className="p-4">
@@ -174,6 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
                     setShowTribes(false);
                     setShowLineages(false);
                     onResetView();
+                    if (isMobile && onClose) onClose();
                 }}
                 className="mt-3 w-full flex items-center justify-center gap-2 p-3 bg-bible-paper dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 hover:border-bible-gold/50 transition-colors text-xs font-medium text-bible-ink dark:text-gray-200"
              >

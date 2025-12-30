@@ -1,16 +1,25 @@
 import React, { useRef, useEffect } from 'react';
 import { BIBLE_BOOKS } from '../constants';
 import { PersonNode } from '../types';
-import { X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 interface BibleBooksBarProps {
   selectedPerson: PersonNode | null;
   selectedBook: string | null;
   onBookClick: (book: string) => void;
   onClearFilter: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
 }
 
-export const BibleBooksBar: React.FC<BibleBooksBarProps> = ({ selectedPerson, selectedBook, onBookClick, onClearFilter }) => {
+export const BibleBooksBar: React.FC<BibleBooksBarProps> = ({
+  selectedPerson,
+  selectedBook,
+  onBookClick,
+  onClearFilter,
+  onToggleSidebar,
+  isSidebarOpen,
+}) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Determine active book either from manual selection or person's attribute
@@ -27,11 +36,21 @@ export const BibleBooksBar: React.FC<BibleBooksBarProps> = ({ selectedPerson, se
 
   return (
     <div className="w-full bg-bible-ink dark:bg-black text-white py-2 z-30 shadow-md border-b border-bible-gold/30 flex items-center">
+        {onToggleSidebar && (
+            <button
+                onClick={onToggleSidebar}
+                className="ml-3 md:hidden p-2 rounded bg-white/10 hover:bg-white/20 text-white"
+                aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+                {isSidebarOpen ? <X size={16} /> : <Menu size={16} />}
+            </button>
+        )}
+
         {/* Reset Filter Button */}
         {selectedBook && (
             <button 
                 onClick={onClearFilter}
-                className="flex-shrink-0 ml-4 px-3 py-1 bg-red-600/80 hover:bg-red-500 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                className="flex-shrink-0 ml-3 px-3 py-1 bg-red-600/80 hover:bg-red-500 text-white text-xs rounded flex items-center gap-1 transition-colors"
             >
                 <X size={12} /> Clear
             </button>
