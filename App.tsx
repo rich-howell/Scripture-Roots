@@ -5,7 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { DetailsPanel } from './components/DetailsPanel';
 import { BibleBooksBar } from './components/BibleBooksBar';
 import { Timeline } from './components/Timeline';
-import { fetchChildren, loadRootTree } from './services/personDataService';
+import { buildBookFilteredTree, buildPersonNodeById, fetchChildren, findAncestorPath, loadRootTree } from './services/personDataService';
 
 const App: React.FC = () => {
   const [data, setData] = useState<PersonNode | null>(null);
@@ -23,6 +23,7 @@ const App: React.FC = () => {
 
     const expandNode = async (node: PersonNode, remainingDepth: number) => {
       if (remainingDepth <= 0) return;
+      if (node.attributes?.suppressChildren) return;
 
       if (node._children && !node.children) {
         node.children = node._children;
@@ -47,8 +48,17 @@ const App: React.FC = () => {
   };
 
   // Load root data once
+  const resetView = async () => {
+    const root = await loadRootTree();
+    if (!root) return;
+    const expanded = await expandInitialGenerations(root, AUTO_EXPAND_DEPTH);
+    setData(expanded);
+    setSelectedPerson(null);
+    setHighlightId(undefined);
+  };
+
   useEffect(() => {
-    loadRootTree().then((root) => setData(root));
+    resetView();
   }, []);
 
   useEffect(() => {
@@ -132,8 +142,19 @@ const App: React.FC = () => {
     setSelectedPerson(node);
     setHighlightId(node.id);
 
+    if (node.id === data.id) {
+        return;
+    }
+
+    if (node.attributes?.isFilterRoot) {
+        return;
+    }
+
     // Local Lazy Loading Logic
     const hasChildren = (node.children && node.children.length > 0) || (node._children && node._children.length > 0);
+    if (node.attributes?.suppressChildren) {
+        return;
+    }
 
     if (!hasChildren && !node.hasLoadedChildren) {
         // Optimistically update flag so we don't fetch twice
@@ -164,7 +185,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSearch = (id: string) => {
+  const handleSearch = async (id: string) => {
     if (!data) return;
     // 1. Find the path to the node
     const pathIds = findPathToNode(data, id);
@@ -197,6 +218,45 @@ const App: React.FC = () => {
         }
 
     } else {
+        const rootId = data.id;
+        const ancestorPath = await findAncestorPath(id, rootId);
+        if (ancestorPath) {
+            let newData = JSON.parse(JSON.stringify(data)) as PersonNode;
+            for (let i = 0; i < ancestorPath.length - 1; i += 1) {
+                const parentId = ancestorPath[i];
+                const childId = ancestorPath[i + 1];
+                const parentNode = findNodeById(newData, parentId);
+                if (!parentNode) continue;
+
+                if (parentNode._children && !parentNode.children) {
+                    parentNode.children = parentNode._children;
+                    parentNode._children = undefined;
+                }
+
+                if ((!parentNode.children || parentNode.children.length === 0) && !parentNode.hasLoadedChildren) {
+                    const children = await fetchChildren(parentId);
+                    parentNode.children = children;
+                    parentNode.hasLoadedChildren = true;
+                }
+
+                if (parentNode.children && !parentNode.children.find((child) => child.id === childId)) {
+                    const missingChild = await buildPersonNodeById(childId);
+                    if (missingChild) {
+                        parentNode.children.push(missingChild);
+                    }
+                }
+            }
+
+            setData(newData);
+
+            const targetNode = findNodeById(newData, id);
+            if (targetNode) {
+                setSelectedPerson(targetNode);
+                setHighlightId(targetNode.id);
+                return;
+            }
+        }
+
         alert(`Person found in the local index: ${id}, but they are not currently loaded in the visible tree branch. Try expanding their lineage from the root.`);
     }
   };
@@ -205,45 +265,30 @@ const App: React.FC = () => {
       handleSearch(id);
   }
 
-  const handleBookClick = (book: string) => {
-      if (!data) return;
+  const handleBookClick = async (book: string) => {
       setSelectedBook(book);
-      
-      // Simple DFS to find the first match in current tree state
-      const findFirstInBook = (node: PersonNode): PersonNode | null => {
-          if (node.attributes?.firstMention === book || (node.attributes?.firstMention && book.includes(node.attributes.firstMention))) {
-              return node;
-          }
-          if (node.children) {
-              for (const child of node.children) {
-                  const res = findFirstInBook(child);
-                  if (res) return res;
-              }
-          }
-          if (node._children) {
-              for (const child of node._children) {
-                  const res = findFirstInBook(child);
-                  if (res) return res;
-              }
-          }
-          return null;
-      };
+      setSelectedPerson(null);
+      setHighlightId(undefined);
 
-      const match = findFirstInBook(data);
-
-      if (match) {
-          handleSearch(match.id);
+      const filteredTree = await buildBookFilteredTree(book);
+      if (filteredTree) {
+          const expanded = await expandInitialGenerations(filteredTree, AUTO_EXPAND_DEPTH);
+          setData(expanded);
+          return;
       }
+
+      alert(`No people found with first appearance in ${book}.`);
   }
 
   const handleClearFilter = () => {
       setSelectedBook(null);
+      resetView();
   }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-50 dark:bg-neutral-900 text-bible-ink dark:text-gray-200 font-sans">
       <div className="flex-shrink-0 z-40 h-full shadow-xl">
-         <Sidebar onSearch={handleSearch} toggleTheme={toggleTheme} isDark={isDark} />
+         <Sidebar onSearch={handleSearch} toggleTheme={toggleTheme} isDark={isDark} onResetView={resetView} />
       </div>
       
       <div className="flex-1 flex flex-col relative h-full overflow-hidden">

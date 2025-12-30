@@ -6,6 +6,7 @@ interface SidebarProps {
   onSearch: (id: string) => void;
   toggleTheme: () => void;
   isDark: boolean;
+  onResetView: () => void;
 }
 
 const MAJOR_FIGURES = [
@@ -17,9 +18,24 @@ const MAJOR_FIGURES = [
     { name: "Solomon", role: "The Wise" },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark, onResetView }) => {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [showTribes, setShowTribes] = useState(false);
+  const [showLineages, setShowLineages] = useState(false);
+
+  const TRIBES = [
+      "Reuben", "Simeon", "Levi", "Judah", "Dan", "Naphtali",
+      "Gad", "Asher", "Issachar", "Zebulun", "Joseph", "Benjamin"
+  ];
+
+  const LINEAGES = [
+      { label: "Messianic Line (to Jesus)", target: "Jesus" },
+      { label: "Davidic Line", target: "David" },
+      { label: "Priestly Line", target: "Aaron" },
+      { label: "Patriarchs", target: "Abraham" },
+      { label: "Post-Flood Line", target: "Noah" }
+  ];
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark 
     }
   };
 
-  const handleMajorClick = async (name: string) => {
+  const handleNavigateByName = async (name: string) => {
     setIsSearching(true);
     const normalizedId = await searchPerson(name);
     setIsSearching(false);
@@ -48,6 +64,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark 
     } else {
         alert("Could not find that person in the record.");
     }
+  };
+
+  const handleMajorClick = async (name: string) => {
+    handleNavigateByName(name);
   };
 
   return (
@@ -108,15 +128,57 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark 
         <div>
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-2">Explore</h3>
              <div className="grid grid-cols-2 gap-2">
-                <button className="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 hover:border-bible-gold/50 transition-colors group">
+                <button
+                    onClick={() => setShowTribes((prev) => !prev)}
+                    className="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 hover:border-bible-gold/50 transition-colors group"
+                >
                     <Users className="mb-2 text-bible-ink dark:text-gray-400 group-hover:text-bible-gold" />
                     <span className="text-xs font-medium">Tribes</span>
                 </button>
-                 <button className="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 hover:border-bible-gold/50 transition-colors group">
+                 <button
+                    onClick={() => setShowLineages((prev) => !prev)}
+                    className="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 hover:border-bible-gold/50 transition-colors group"
+                 >
                     <GitBranch className="mb-2 text-bible-ink dark:text-gray-400 group-hover:text-bible-gold" />
                     <span className="text-xs font-medium">Lineages</span>
                 </button>
              </div>
+             {showTribes && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                    {TRIBES.map((tribe) => (
+                        <button
+                            key={tribe}
+                            onClick={() => handleNavigateByName(tribe)}
+                            className="text-xs px-2 py-2 rounded border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-bible-gold/50 transition-colors"
+                        >
+                            {tribe}
+                        </button>
+                    ))}
+                </div>
+             )}
+             {showLineages && (
+                <div className="mt-3 space-y-2">
+                    {LINEAGES.map((lineage) => (
+                        <button
+                            key={lineage.label}
+                            onClick={() => handleNavigateByName(lineage.target)}
+                            className="w-full text-left text-xs px-3 py-2 rounded border border-gray-100 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-bible-gold/50 transition-colors"
+                        >
+                            {lineage.label}
+                        </button>
+                    ))}
+                </div>
+             )}
+             <button
+                onClick={() => {
+                    setShowTribes(false);
+                    setShowLineages(false);
+                    onResetView();
+                }}
+                className="mt-3 w-full flex items-center justify-center gap-2 p-3 bg-bible-paper dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 hover:border-bible-gold/50 transition-colors text-xs font-medium text-bible-ink dark:text-gray-200"
+             >
+                Reset View
+             </button>
         </div>
       </div>
 

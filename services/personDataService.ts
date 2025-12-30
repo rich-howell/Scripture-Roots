@@ -23,6 +23,7 @@ const normalizeKey = (value: string) => value.trim().toLowerCase();
 let peopleIndexCache: Map<string, PeopleIndexEntry> | null = null;
 let aliasesCache: Map<string, string[]> | null = null;
 let childrenCache: Map<string, string[]> | null = null;
+let parentsCache: Map<string, string[]> | null = null;
 let rootCache: PersonNode | null = null;
 const detailsCache = new Map<string, Map<string, DetailedPersonInfo>>();
 
@@ -99,6 +100,21 @@ const loadChildrenIndex = async () => {
   return childrenCache;
 };
 
+const loadParentsIndex = async () => {
+  if (parentsCache) return parentsCache;
+  const childrenIndex = await loadChildrenIndex();
+  const map = new Map<string, string[]>();
+  childrenIndex.forEach((children, parentId) => {
+    children.forEach((childId) => {
+      const existing = map.get(childId) || [];
+      if (!existing.includes(parentId)) existing.push(parentId);
+      map.set(childId, existing);
+    });
+  });
+  parentsCache = map;
+  return parentsCache;
+};
+
 const loadDetailsBucket = async (bucket: string) => {
   if (detailsCache.has(bucket)) return detailsCache.get(bucket) as Map<string, DetailedPersonInfo>;
   try {
@@ -173,4 +189,77 @@ export const buildPersonNodeById = async (id: string): Promise<PersonNode | null
   const peopleIndex = await loadPeopleIndex();
   const entry = peopleIndex.get(id);
   return entry ? buildNode(entry) : null;
+};
+
+export const findAncestorPath = async (targetId: string, rootId: string): Promise<string[] | null> => {
+  const [parentsIndex, peopleIndex] = await Promise.all([loadParentsIndex(), loadPeopleIndex()]);
+
+  const scoreParent = (parentId: string) => peopleIndex.get(parentId)?.verseCount ?? 0;
+
+  const visit = (currentId: string, visited: Set<string>): string[] | null => {
+    if (currentId === rootId) return [rootId];
+    if (visited.has(currentId)) return null;
+    visited.add(currentId);
+
+    const parents = parentsIndex.get(currentId) || [];
+    const sortedParents = [...parents].sort((a, b) => scoreParent(b) - scoreParent(a));
+    for (const parentId of sortedParents) {
+      const result = visit(parentId, visited);
+      if (result) return [...result, currentId];
+    }
+    return null;
+  };
+
+  return visit(targetId, new Set());
+};
+
+export const buildBookFilteredTree = async (book: string): Promise<PersonNode | null> => {
+  const [peopleIndex, childrenIndex] = await Promise.all([loadPeopleIndex(), loadChildrenIndex()]);
+  if (!book) return null;
+
+  const seedIds = Array.from(peopleIndex.values())
+    .filter((entry) => entry.firstMention === book)
+    .map((entry) => entry.id);
+
+  if (seedIds.length === 0) {
+    return null;
+  }
+
+  const buildSubtree = (id: string, visited: Set<string>): PersonNode | null => {
+    if (visited.has(id)) return null;
+    visited.add(id);
+
+    const entry = peopleIndex.get(id);
+    if (!entry) {
+      visited.delete(id);
+      return null;
+    }
+
+    const node = buildNode(entry, true);
+    const childIds = childrenIndex.get(id) || [];
+    const children: PersonNode[] = [];
+    for (const childId of childIds) {
+      const childNode = buildSubtree(childId, visited);
+      if (childNode) children.push(childNode);
+    }
+
+    if (children.length > 0) {
+      node._children = children;
+    }
+
+    visited.delete(id);
+    return node;
+  };
+
+  const children = seedIds
+    .map((seedId) => buildSubtree(seedId, new Set()))
+    .filter((node): node is PersonNode => Boolean(node));
+
+  return {
+    id: `book-${book}`,
+    name: `${book} First Appearances`,
+    attributes: { title: `First Appearing in ${book}`, isFilterRoot: true },
+    children,
+    hasLoadedChildren: true
+  };
 };

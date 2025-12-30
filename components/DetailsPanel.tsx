@@ -40,14 +40,21 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({ person, onClose, onN
     if (id) onNavigate(id);
   };
 
-  const renderNameList = (items?: string[]) => {
+  const renderNameList = (items?: string[], ids?: string[]) => {
     if (!items || items.length === 0) return null;
     return (
         <div className="flex flex-wrap gap-2">
-            {items.map((item) => (
+            {items.map((item, index) => (
                 <button
-                    key={item}
-                    onClick={() => resolveAndNavigate(item)}
+                    key={`${item}-${index}`}
+                    onClick={() => {
+                        const targetId = ids?.[index];
+                        if (targetId) {
+                            onNavigate(targetId);
+                        } else {
+                            resolveAndNavigate(item);
+                        }
+                    }}
                     className="text-xs font-medium text-bible-red hover:text-bible-accent underline-offset-2 hover:underline"
                 >
                     {item}
@@ -72,11 +79,11 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({ person, onClose, onN
         />
         <button 
           onClick={onClose} 
-          className="absolute top-4 right-4 text-white hover:text-bible-gold transition-colors bg-black/20 p-1 rounded-full backdrop-blur-sm"
+          className="absolute top-4 right-4 z-20 text-white hover:text-bible-gold transition-colors bg-black/20 p-1 rounded-full backdrop-blur-sm"
         >
           <X size={24} />
         </button>
-        <div className="absolute bottom-4 left-6">
+        <div className="absolute bottom-4 left-6 right-16 pointer-events-none">
             <h2 className="text-3xl font-serif text-white font-bold tracking-wide">{person.name}</h2>
             {details?.role && <span className="text-bible-gold text-sm font-medium uppercase tracking-wider bg-black/40 px-2 py-0.5 rounded">{details.role}</span>}
         </div>
@@ -138,19 +145,19 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({ person, onClose, onN
                         {details.spouses && details.spouses.length > 0 && (
                             <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded border border-gray-100 dark:border-neutral-700">
                                 <span className="text-xs font-bold text-gray-500 uppercase block mb-2">Spouse</span>
-                                {renderNameList(details.spouses)}
+                                {renderNameList(details.spouses, details.spousesIds)}
                             </div>
                         )}
                         {details.parents && details.parents.length > 0 && (
                             <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded border border-gray-100 dark:border-neutral-700">
                                  <span className="text-xs font-bold text-gray-500 uppercase block mb-2">Parents</span>
-                                 {renderNameList(details.parents)}
+                                 {renderNameList(details.parents, details.parentsIds)}
                             </div>
                         )}
                         {details.children && details.children.length > 0 && (
                             <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded border border-gray-100 dark:border-neutral-700">
                                  <span className="text-xs font-bold text-gray-500 uppercase block mb-2">Children</span>
-                                 {renderNameList(details.children)}
+                                 {renderNameList(details.children, details.childrenIds)}
                             </div>
                         )}
                     </div>

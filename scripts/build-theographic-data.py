@@ -37,6 +37,20 @@ def split_sentences(text: str):
         return []
     return re.split(r"(?<=[.!?])\s+", cleaned)
 
+def clean_dict_text(text: str):
+    if not text:
+        return None
+    if isinstance(text, list):
+        text = " ".join(item for item in text if isinstance(item, str))
+    if not isinstance(text, str):
+        return None
+    cleaned = text
+    cleaned = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", cleaned)
+    cleaned = cleaned.replace("“", "\"").replace("”", "\"")
+    cleaned = cleaned.replace("‘", "'").replace("’", "'")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
 def extract_disambiguation(name: str, text: str | None):
     if not text or not isinstance(text, str):
         return None
@@ -83,13 +97,10 @@ def build_display_name(name: str, disambig: str | None):
 
 
 def trim_bio(text: str, max_sentences: int):
-    if not text:
+    cleaned = clean_dict_text(text)
+    if not cleaned:
         return None
-    if isinstance(text, list):
-        text = " ".join(item for item in text if isinstance(item, str))
-    if not isinstance(text, str):
-        return None
-    sentences = split_sentences(text)
+    sentences = split_sentences(cleaned)
     if not sentences:
         return None
     trimmed = " ".join(sentences[:max_sentences]).strip()
@@ -102,7 +113,8 @@ def bucket_for_id(person_id: str) -> str:
     first = person_id[0].lower()
     return first if "a" <= first <= "z" else "other"
 
-def build_node(entry, has_loaded=False):
+def build_node(entry, has_loaded=False, extra_attributes=None):
+    extra_attributes = extra_attributes or {}
     return {
         "id": entry.get("id"),
         "name": entry.get("name") or entry.get("id"),
@@ -112,6 +124,7 @@ def build_node(entry, has_loaded=False):
             "birthYear": entry.get("birthYear"),
             "deathYear": entry.get("deathYear"),
             "firstMention": entry.get("firstMention"),
+            **extra_attributes,
         },
         "hasLoadedChildren": has_loaded,
     }
@@ -157,6 +170,7 @@ def main():
 
     record_to_lookup = {}
     lookup_to_name = {}
+    lookup_to_display_name = {}
     lookup_to_fields = {}
 
     for person in people:
@@ -168,6 +182,11 @@ def main():
         lookup_to_name[lookup] = fields.get("name") or lookup
         lookup_to_fields[lookup] = fields
 
+    for lookup, fields in lookup_to_fields.items():
+        name = fields.get("name") or lookup
+        disambiguation = fields.get("Disambiguation (temp)")
+        lookup_to_display_name[lookup] = build_display_name(name, disambiguation)
+
     def resolve_lookup_list(record_ids):
         resolved = []
         for record_id in record_ids or []:
@@ -177,7 +196,10 @@ def main():
         return resolved
 
     def resolve_name_list(record_ids):
-        return [lookup_to_name[l] for l in resolve_lookup_list(record_ids) if l in lookup_to_name]
+        resolved = []
+        for lookup in resolve_lookup_list(record_ids):
+            resolved.append(lookup_to_display_name.get(lookup) or lookup_to_name.get(lookup) or lookup)
+        return resolved
 
     def verse_ref(verse_id):
         verse = verse_map.get(verse_id)
@@ -210,10 +232,10 @@ def main():
     details_buckets = defaultdict(dict)
 
     for lookup, fields in lookup_to_fields.items():
-        name = fields.get("name") or lookup
+        name = lookup_to_display_name.get(lookup) or fields.get("name") or lookup
         display_title = fields.get("displayTitle")
         disambiguation = fields.get("Disambiguation (temp)")
-        display_name = build_display_name(name, disambiguation)
+        display_name = name
         verse_count = fields.get("verseCount", 0)
         min_year = fields.get("minYear")
         max_year = fields.get("maxYear")
@@ -236,10 +258,13 @@ def main():
             if len(scriptures) >= MAX_SCRIPTURE_REFS:
                 break
 
-        spouses = resolve_name_list(fields.get("partners"))
-        parents = resolve_name_list((fields.get("father") or []) + (fields.get("mother") or []))
+        spouses_ids = resolve_lookup_list(fields.get("partners"))
+        parents_ids = resolve_lookup_list((fields.get("father") or []) + (fields.get("mother") or []))
         children_ids = resolve_lookup_list(fields.get("children"))
-        children_names = [lookup_to_name[c] for c in children_ids if c in lookup_to_name]
+
+        spouses = [lookup_to_display_name.get(s, lookup_to_name.get(s, s)) for s in spouses_ids]
+        parents = [lookup_to_display_name.get(p, lookup_to_name.get(p, p)) for p in parents_ids]
+        children_names = [lookup_to_display_name.get(c, lookup_to_name.get(c, c)) for c in children_ids]
 
         people_index[lookup] = {
             "id": lookup,
@@ -269,8 +294,11 @@ def main():
             "bio": bio,
             "scriptures": scriptures,
             "spouses": spouses,
+            "spousesIds": spouses_ids,
             "parents": parents,
+            "parentsIds": parents_ids,
             "children": children_names,
+            "childrenIds": children_ids,
             "firstMention": first_mention,
             "birthYear": min_year,
             "deathYear": max_year,
@@ -296,12 +324,6 @@ def main():
         root_entry = people_index[adam_lookup]
         root = build_node(root_entry, has_loaded=True)
         child_ids = list(children_map.get(adam_lookup, []))
-        eve_candidates = [(pid, info.get("verseCount", 0)) for pid, info in people_index.items() if info.get("name") == "Eve"]
-        if eve_candidates:
-            eve_candidates.sort(key=lambda item: item[1], reverse=True)
-            eve_id = eve_candidates[0][0]
-            if eve_id not in child_ids:
-                child_ids.append(eve_id)
         root["_children"] = [build_node(people_index[cid]) for cid in child_ids if cid in people_index]
     else:
         root = {

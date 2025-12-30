@@ -15,6 +15,29 @@ interface TreeGraphProps {
 export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, height, highlightId, focusOffsetX = 0 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const MAX_LABEL_CHARS = 14;
+  const ROOT_WRAP_CHARS = 24;
+  const isDarkMode = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  const labelFill = isDarkMode ? "#e5e7eb" : "#374151";
+  const outlineStroke = isDarkMode ? "rgba(17,24,39,0.85)" : "rgba(255,255,255,0.85)";
+  const formatLabel = (value: string) => {
+    if (!value) return "";
+    if (value.length <= MAX_LABEL_CHARS) return value;
+    return `${value.slice(0, MAX_LABEL_CHARS - 1)}…`;
+  };
+  const wrapRootLabel = (value: string) => {
+    const parts = [];
+    let remaining = value.trim();
+    while (remaining.length > ROOT_WRAP_CHARS) {
+      let cut = remaining.lastIndexOf(" ", ROOT_WRAP_CHARS);
+      if (cut <= 0) cut = ROOT_WRAP_CHARS;
+      parts.push(remaining.slice(0, cut).trim());
+      remaining = remaining.slice(cut).trim();
+    }
+    if (remaining) parts.push(remaining);
+    return parts;
+  };
   
   // Keep track of the d3 selection for zoom programmatic control
   const zoomBehavior = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -101,16 +124,51 @@ export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, 
       .attr("stroke-width", 2);
 
     // Labels
-    nodeGroup.append("text")
+    
+
+    const labels = nodeGroup.append("text")
       .attr("dy", "0.31em")
       .attr("x", d => d.children || d.data._children ? -10 : 10)
       .attr("text-anchor", d => d.children || d.data._children ? "end" : "start")
-      .text(d => d.data.name)
+      .text(d => (d.depth === 0 ? d.data.name : formatLabel(d.data.name)))
       .attr("id", d => `text-${d.data.id}`)
-      .attr("class", "text-xs font-medium fill-current text-gray-700 dark:text-gray-300")
-      .clone(true).lower()
-      .attr("stroke", "var(--bg-color, white)")
+      .attr("class", "node-label text-xs font-medium")
+      .attr("fill", labelFill);
+
+    labels.clone(true).lower()
+      .attr("id", d => `text-outline-${d.data.id}`)
+      .attr("class", "node-label-outline text-xs font-medium")
+      .attr("fill", labelFill)
+      .attr("stroke", outlineStroke)
       .attr("stroke-width", 3);
+
+    labels.filter(d => d.depth === 0).each(function(d) {
+      const lines = wrapRootLabel(d.data.name);
+      const text = d3.select(this);
+      text.text(null);
+      lines.forEach((line, index) => {
+        text.append("tspan")
+          .attr("x", d.children || d.data._children ? -10 : 10)
+          .attr("dy", index === 0 ? "0.31em" : "1.1em")
+          .text(line);
+      });
+    });
+
+    d3.selectAll("text.node-label-outline")
+      .filter((d: any) => d && d.depth === 0)
+      .each(function(d: any) {
+        const lines = wrapRootLabel(d.data.name);
+        const text = d3.select(this);
+        text.text(null);
+        lines.forEach((line: string, index: number) => {
+          text.append("tspan")
+            .attr("x", d.children || d.data._children ? -10 : 10)
+            .attr("dy", index === 0 ? "0.31em" : "1.1em")
+            .text(line);
+        });
+      });
+
+    labels.append("title").text(d => d.data.name);
 
     // Attribute Tags
     nodeGroup.each(function(d) {
@@ -124,7 +182,7 @@ export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, 
         }
     });
 
-  }, [data, width, height, onNodeClick]); 
+  }, [data, width, height, onNodeClick, labelFill, outlineStroke]); 
 
   // Effect to handle highlighting and panning separately
   useEffect(() => {
@@ -134,8 +192,14 @@ export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, 
     
     // Reset styles
     svg.selectAll("circle").attr("r", 5).attr("stroke", "#fff").attr("stroke-width", 2);
-    svg.selectAll("text.fill-current").attr("class", "text-xs font-medium fill-current text-gray-700 dark:text-gray-300");
-    svg.selectAll(".node").classed("opacity-100", false).classed("opacity-40", !!highlightId);
+    svg.selectAll("text.node-label")
+      .attr("class", "node-label text-xs font-medium")
+      .attr("fill", labelFill);
+    svg.selectAll("text.node-label-outline")
+      .attr("class", "node-label-outline text-xs font-medium")
+      .attr("fill", labelFill)
+      .attr("stroke", outlineStroke);
+    svg.selectAll(".node").classed("opacity-100", false).classed("opacity-70", !!highlightId);
 
     if (highlightId) {
         const targetNode = rootRef.current.descendants().find(d => d.data.id === highlightId);
@@ -144,18 +208,51 @@ export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, 
             // Highlight styles
             svg.select(`#circle-${highlightId}`)
                 .attr("r", 8)
-                .attr("stroke", "#8a2be2")
+                .attr("stroke", "rgb(138, 43, 226)")
                 .attr("stroke-width", 3);
             
-            svg.select(`#text-${highlightId}`)
-                .attr("class", "text-sm font-bold fill-current text-bible-red");
+            const mainLabel = svg.select(`#text-${highlightId}`)
+                .attr("class", "node-label text-sm font-bold")
+                .attr("fill", "rgb(138, 43, 226)");
+
+            if (targetNode.depth === 0) {
+                const lines = wrapRootLabel(targetNode.data.name);
+                mainLabel.text(null);
+                lines.forEach((line, index) => {
+                    mainLabel.append("tspan")
+                      .attr("x", targetNode.children || targetNode.data._children ? -10 : 10)
+                      .attr("dy", index === 0 ? "0.31em" : "1.1em")
+                      .text(line);
+                });
+            } else {
+                mainLabel.text(targetNode.data.name);
+            }
+
+            const outlineLabel = svg.select(`#text-outline-${highlightId}`)
+                .attr("class", "node-label-outline text-sm font-bold")
+                .attr("fill", "rgb(138, 43, 226)")
+                .attr("stroke", outlineStroke)
+                .attr("stroke-width", 3);
+
+            if (targetNode.depth === 0) {
+                const lines = wrapRootLabel(targetNode.data.name);
+                outlineLabel.text(null);
+                lines.forEach((line, index) => {
+                    outlineLabel.append("tspan")
+                      .attr("x", targetNode.children || targetNode.data._children ? -10 : 10)
+                      .attr("dy", index === 0 ? "0.31em" : "1.1em")
+                      .text(line);
+                });
+            } else {
+                outlineLabel.text(targetNode.data.name);
+            }
 
             // Highlight opacity path
             // This is a bit complex for a quick effect, so we just highlight the specific node and dim others
             svg.selectAll(".node")
                 .filter(d => (d as any).data.id === highlightId)
                 .classed("opacity-100", true)
-                .classed("opacity-40", false);
+                .classed("opacity-70", false);
 
             // PAN TO NODE
             // Calculate translation to center the node
@@ -170,10 +267,10 @@ export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, 
             );
         }
     } else {
-        svg.selectAll(".node").classed("opacity-100", true).classed("opacity-40", false);
+        svg.selectAll(".node").classed("opacity-100", true).classed("opacity-70", false);
     }
 
-  }, [highlightId, width, height, focusOffsetX]);
+  }, [highlightId, width, height, focusOffsetX, labelFill, outlineStroke]);
 
   const handleZoomIn = () => {
     if (svgRef.current && zoomBehavior.current) {
@@ -200,7 +297,7 @@ export const TreeGraph: React.FC<TreeGraphProps> = ({ data, onNodeClick, width, 
         width={width} 
         height={height}
         className="w-full h-full cursor-move select-none"
-        style={{"--bg-color": "rgba(255,255,255,0.8)"} as React.CSSProperties}
+        style={{"--bg-color": outlineStroke} as React.CSSProperties}
       />
       
       {/* Controls */}

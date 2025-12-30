@@ -38,8 +38,11 @@ export interface DetailedPersonInfo {
   bio?: string;
   scriptures?: string[];
   spouses?: string[];
+  spousesIds?: string[];
   parents?: string[];
+  parentsIds?: string[];
   children?: string[]; // Names only for display
+  childrenIds?: string[];
   firstMention?: string;
   birthYear?: number;
   deathYear?: number;
