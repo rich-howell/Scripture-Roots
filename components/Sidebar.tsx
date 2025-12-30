@@ -79,8 +79,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
       {/* Header */}
       <div className="p-6 border-b border-gray-100 dark:border-neutral-800 flex justify-between items-center bg-bible-paper dark:bg-neutral-900">
         <div>
-            <h1 className="font-serif text-2xl font-extrabold text-bible-ink dark:text-bible-gold tracking-tight">Scripture Roots</h1>
-            <p className="text-xs text-gray-500 font-sans mt-1">Interactive Genealogy</p>
+            <img
+              src={isDark ? "/assets/logo.png" : "/assets/logo-light.png"}
+              alt="Scripture Roots"
+            />
         </div>
         <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 transition-colors">
             {isDark ? <Sun size={20} className="text-bible-gold" /> : <Moon size={20} className="text-bible-ink" />}
