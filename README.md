@@ -1,3 +1,5 @@
+![Scripture Roots Header Image](./img/github-header.png)
+
 # Scripture Roots
 
 Scripture Roots is a local-first, D3-based genealogy explorer for biblical people. It renders lineage relationships from prebuilt JSON data and provides fast, deterministic lookups without calling external AI services at runtime.
