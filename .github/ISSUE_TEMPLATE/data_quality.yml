@@ -1,0 +1,41 @@
+name: "Data Quality"
+description: Report incorrect data or data inconsistency
+labels: ["data-quality", "needs-triage"]
+body:
+  - type: textarea
+    id: data_quality_description
+    attributes:
+      label: Description of data issue
+      description: What is the context of the issue?
+      placeholder: "When clicking Adam incorrect descendants appear."
+    validations:
+      required: true
+      
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: Step-by-step way to reproduce the issue
+      placeholder: |
+        1. Load Application
+        2. Click Adam...        
+    validations:
+      required: true
+
+  - type: textarea
+    id: recommendations
+    attributes:
+      label: Suggested Fix (Optional)
+      placeholder: "This is the correct descendants for Adam..."
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Info
+      placeholder: "Any extra context that may help us resolve this issue."
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Screenshots"
+      description: "If relevant attach screenshots"
