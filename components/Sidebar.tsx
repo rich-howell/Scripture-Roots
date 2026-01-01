@@ -88,15 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
             {isDark ? <Sun size={20} className="text-bible-gold" /> : <Moon size={20} className="text-bible-ink" />}
         </button>
       </div>
-      {isMobile && onClose && (
-        <button
-          type="button"
-          onClick={onClose}
-          className="md:hidden px-4 py-3 text-xs font-medium text-bible-ink dark:text-gray-200 bg-bible-paper dark:bg-neutral-800 border-b border-gray-100 dark:border-neutral-800"
-        >
-          Close Menu
-        </button>
-      )}
+
 
       {/* Search */}
       <div className="p-4">
