@@ -304,7 +304,7 @@ const App: React.FC = () => {
         />
       )}
       <div
-        className={`fixed inset-y-0 left-0 z-50 h-full w-[85vw] max-w-80 transform bg-white dark:bg-neutral-900 shadow-xl transition-transform duration-300 md:static md:w-80 md:translate-x-0 ${
+        className={`fixed left-0 top-12 bottom-0 z-50 w-[85vw] max-w-80 transform bg-white dark:bg-neutral-900 shadow-xl transition-transform duration-300 md:static md:top-auto md:bottom-auto md:h-full md:w-80 md:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

@@ -35,7 +35,7 @@ export const BibleBooksBar: React.FC<BibleBooksBarProps> = ({
   }, [activeBook]);
 
   return (
-    <div className="w-full bg-bible-ink dark:bg-black text-white py-2 z-30 shadow-md border-b border-bible-gold/30 flex items-center">
+    <div className="w-full h-12 bg-bible-ink dark:bg-black text-white py-2 z-30 shadow-md border-b border-bible-gold/30 flex items-center">
         {onToggleSidebar && (
             <button
                 onClick={onToggleSidebar}
