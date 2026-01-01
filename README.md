@@ -20,8 +20,8 @@ Scripture Roots is a local-first, D3-based genealogy explorer for biblical peopl
 
 ## Project Layout
 
-- `App.tsx` drives page layout, data loading, and navigation behavior.
-- `components/TreeGraph.tsx` renders the D3 tree, zoom/pan, and selection behavior.
+- `App.tsx` drives page layout, data loading, and navigation behaviour.
+- `components/TreeGraph.tsx` renders the D3 tree, zoom/pan, and selection behaviour.
 - `components/Sidebar.tsx` handles search, key figures, and quick navigation.
 - `components/DetailsPanel.tsx` shows person details and linked relatives.
 - `components/BibleBooksBar.tsx` provides book filter and mobile menu toggle.
@@ -95,6 +95,43 @@ Start the dev server:
 npm run dev
 ```
 
+## Deploy With Docker
+
+Prerequisites:
+
+- Docker (and Docker Compose if you want the compose flow)
+
+Build the image:
+
+```bash
+docker build -t scripture-roots .
+```
+
+Run the container:
+
+```bash
+docker run --rm -p 8080:80 scripture-roots
+```
+
+Then open `http://localhost:8080`.
+
+### Docker Compose
+
+Build and run with Compose:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080`.
+
+### Deploy On Coolify
+
+You can deploy with either the Dockerfile or Compose flow:
+
+- Dockerfile: point Coolify at this repo and set the exposed port to `80`.
+- Compose: use `docker-compose.yml` and map host port `8080` to container port `80` (or change the host port as needed).
+
 ## Contributing
 
 Contributions are welcome. Please keep changes focused and local-first.
@@ -109,14 +146,14 @@ Recommended workflow:
    - Lazy loading of children
    - Book filter and clear filter
    - Details panel navigation
-   - Mobile sidebar behavior
+   - Mobile sidebar behaviour
 5. Open a PR with a clear description of the change.
 
 ### Guidelines
 
 - Keep runtime data access local.
 - Avoid adding network calls or API dependencies without discussion.
-- Preserve existing UI behavior unless there is a strong reason to change it.
+- Preserve existing UI behaviour unless there is a strong reason to change it.
 - Use ASCII in files that are already ASCII.
 
 ## License
