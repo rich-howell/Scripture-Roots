@@ -213,6 +213,157 @@ export const findAncestorPath = async (targetId: string, rootId: string): Promis
   return visit(targetId, new Set());
 };
 
+export type SearchSuggestion = {
+  id: string;
+  name: string;
+  displayTitle?: string;
+  score: number;
+};
+
+const levenshteinDistance = (a: string, b: string): number => {
+  const matrix: number[][] = [];
+  const aLen = a.length;
+  const bLen = b.length;
+
+  if (aLen === 0) return bLen;
+  if (bLen === 0) return aLen;
+
+  for (let i = 0; i <= bLen; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= aLen; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= bLen; i++) {
+    for (let j = 1; j <= aLen; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[bLen][aLen];
+};
+
+export const getSuggestions = async (query: string, limit = 8): Promise<SearchSuggestion[]> => {
+  const normalized = normalizeKey(query);
+  if (!normalized || normalized.length < 2) return [];
+
+  const [aliases, peopleIndex] = await Promise.all([loadAliasesData(), loadPeopleIndex()]);
+  const suggestions: SearchSuggestion[] = [];
+  const seenIds = new Set<string>();
+
+  // First, check for exact alias matches and prefix matches
+  aliases.forEach((ids, aliasKey) => {
+    if (aliasKey === normalized) {
+      // Exact match - highest priority
+      ids.forEach((id) => {
+        if (!seenIds.has(id)) {
+          const entry = peopleIndex.get(id);
+          if (entry) {
+            suggestions.push({
+              id: entry.id,
+              name: entry.name,
+              displayTitle: entry.displayTitle,
+              score: 100
+            });
+            seenIds.add(id);
+          }
+        }
+      });
+    } else if (aliasKey.startsWith(normalized)) {
+      // Prefix match - high priority
+      ids.forEach((id) => {
+        if (!seenIds.has(id)) {
+          const entry = peopleIndex.get(id);
+          if (entry) {
+            suggestions.push({
+              id: entry.id,
+              name: entry.name,
+              displayTitle: entry.displayTitle,
+              score: 80
+            });
+            seenIds.add(id);
+          }
+        }
+      });
+    }
+  });
+
+  // Then check people index for substring matches
+  peopleIndex.forEach((entry) => {
+    if (seenIds.has(entry.id)) return;
+
+    const nameLower = entry.name.toLowerCase();
+    const displayLower = (entry.displayTitle || "").toLowerCase();
+
+    if (nameLower.includes(normalized) || displayLower.includes(normalized)) {
+      suggestions.push({
+        id: entry.id,
+        name: entry.name,
+        displayTitle: entry.displayTitle,
+        score: nameLower.startsWith(normalized) ? 70 : 50
+      });
+      seenIds.add(entry.id);
+    }
+  });
+
+  // If we have few results, use fuzzy matching with Levenshtein distance
+  if (suggestions.length < limit) {
+    const maxDistance = Math.max(2, Math.floor(normalized.length / 3));
+
+    aliases.forEach((ids, aliasKey) => {
+      const distance = levenshteinDistance(normalized, aliasKey);
+      if (distance <= maxDistance && distance > 0) {
+        ids.forEach((id) => {
+          if (!seenIds.has(id)) {
+            const entry = peopleIndex.get(id);
+            if (entry) {
+              suggestions.push({
+                id: entry.id,
+                name: entry.name,
+                displayTitle: entry.displayTitle,
+                score: Math.max(0, 40 - distance * 10)
+              });
+              seenIds.add(id);
+            }
+          }
+        });
+      }
+    });
+
+    // Also check display names with fuzzy matching
+    peopleIndex.forEach((entry) => {
+      if (seenIds.has(entry.id)) return;
+
+      const displayLower = (entry.displayTitle || entry.name).toLowerCase();
+      const distance = levenshteinDistance(normalized, displayLower);
+
+      if (distance <= maxDistance) {
+        suggestions.push({
+          id: entry.id,
+          name: entry.name,
+          displayTitle: entry.displayTitle,
+          score: Math.max(0, 30 - distance * 10)
+        });
+        seenIds.add(entry.id);
+      }
+    });
+  }
+
+  // Sort by score descending and limit results
+  return suggestions
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+};
+
 export const buildBookFilteredTree = async (book: string): Promise<PersonNode | null> => {
   const [peopleIndex, childrenIndex] = await Promise.all([loadPeopleIndex(), loadChildrenIndex()]);
   if (!book) return null;
@@ -235,7 +386,7 @@ export const buildBookFilteredTree = async (book: string): Promise<PersonNode | 
       return null;
     }
 
-    const node = buildNode(entry, true);
+    const node = buildNode(entry);
     const childIds = childrenIndex.get(id) || [];
     const children: PersonNode[] = [];
     for (const childId of childIds) {

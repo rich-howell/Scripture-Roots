@@ -44,22 +44,29 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({ person, onClose, onN
     if (!items || items.length === 0) return null;
     return (
         <div className="flex flex-wrap gap-2">
-            {items.map((item, index) => (
-                <button
-                    key={`${item}-${index}`}
-                    onClick={() => {
-                        const targetId = ids?.[index];
-                        if (targetId) {
-                            onNavigate(targetId);
-                        } else {
-                            resolveAndNavigate(item);
-                        }
-                    }}
-                    className="text-xs font-medium text-bible-red hover:text-bible-accent underline-offset-2 hover:underline"
-                >
-                    {item}
-                </button>
-            ))}
+            {items.map((item, index) => {
+                const targetId = ids?.[index];
+                const isClickable = Boolean(targetId);
+                return (
+                    <button
+                        key={`${item}-${index}`}
+                        onClick={() => {
+                            if (targetId) {
+                                onNavigate(targetId);
+                            } else {
+                                resolveAndNavigate(item);
+                            }
+                        }}
+                        className={`text-xs font-medium px-2 py-1 rounded transition-colors cursor-pointer ${
+                            isClickable
+                                ? 'bg-bible-red/10 text-bible-red hover:bg-bible-red hover:text-white dark:bg-bible-red/20 dark:hover:bg-bible-red'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-bible-accent'
+                        }`}
+                    >
+                        {item}
+                    </button>
+                );
+            })}
         </div>
     );
   };
@@ -67,7 +74,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({ person, onClose, onN
   if (!person) return null;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-full sm:w-[400px] bg-white dark:bg-neutral-900 shadow-2xl z-50 overflow-y-auto transform transition-transform duration-300 border-l border-bible-gold/20">
+    <div className="fixed right-0 top-0 w-full sm:w-[400px] bg-white dark:bg-neutral-900 shadow-2xl z-50 transform transition-transform duration-300 border-l border-bible-gold/20 fixed-panel-mobile">
       
       {/* Header Image Placeholder */}
       <div className="h-32 bg-bible-ink relative overflow-hidden">

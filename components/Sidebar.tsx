@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Search, ChevronRight, Book, Users, GitBranch, Moon, Sun } from 'lucide-react';
-import { searchPerson } from '../services/personDataService';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, ChevronRight, Book, Users, GitBranch, Moon, Sun, Github } from 'lucide-react';
+import { searchPerson, getSuggestions, SearchSuggestion } from '../services/personDataService';
+import { SearchSuggestions } from './SearchSuggestions';
 
 interface SidebarProps {
   onSearch: (id: string) => void;
@@ -25,6 +26,73 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
   const [isSearching, setIsSearching] = useState(false);
   const [showTribes, setShowTribes] = useState(false);
   const [showLineages, setShowLineages] = useState(false);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const fetchSuggestions = useCallback(async (searchQuery: string) => {
+    if (searchQuery.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const results = await getSuggestions(searchQuery);
+    setSuggestions(results);
+    setShowSuggestions(results.length > 0);
+    setActiveIndex(-1);
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      fetchSuggestions(query);
+    }, 150);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [query, fetchSuggestions]);
+
+  const handleSuggestionSelect = (id: string) => {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setQuery('');
+    onSearch(id);
+    if (isMobile && onClose) onClose();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+        break;
+      case 'Enter':
+        if (activeIndex >= 0 && activeIndex < suggestions.length) {
+          e.preventDefault();
+          handleSuggestionSelect(suggestions[activeIndex].id);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setActiveIndex(-1);
+        break;
+    }
+  };
 
   const TRIBES = [
       "Reuben", "Simeon", "Levi", "Judah", "Dan", "Naphtali",
@@ -93,15 +161,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
       {/* Search */}
       <div className="p-4">
         <form onSubmit={handleSearch} className="relative group">
-            <input 
-                type="text" 
+            <input
+                ref={inputRef}
+                type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Find a person..." 
+                onKeyDown={handleKeyDown}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Find a person..."
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-bible-gold/50 transition-all font-sans text-sm"
+                autoComplete="off"
             />
             <Search className="absolute left-3 top-3.5 text-gray-400 group-focus-within:text-bible-gold transition-colors" size={18} />
             {isSearching && <div className="absolute right-3 top-3.5 animate-spin w-4 h-4 border-2 border-bible-gold border-t-transparent rounded-full"></div>}
+            <SearchSuggestions
+              suggestions={suggestions}
+              onSelect={handleSuggestionSelect}
+              visible={showSuggestions}
+              activeIndex={activeIndex}
+            />
         </form>
       </div>
 
@@ -190,8 +269,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onSearch, toggleTheme, isDark,
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-100 dark:border-neutral-800 text-center">
-         <p className="text-[10px] text-gray-400">Local data - D3.js</p>
+      <div className="p-4 border-t border-gray-100 dark:border-neutral-800">
+         <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-gray-400">Local data - <a href="https://d3js.org/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-bible-gold transition-colors">D3.js</a></span>
+            <a
+              href="https://github.com/rich-howell/Scripture-Roots"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-bible-gold transition-colors"
+              aria-label="View on GitHub"
+            >
+              <Github size={16} />
+            </a>
+         </div>
+         <p className="text-[10px] text-gray-400 text-center">&copy; {new Date().getFullYear()} <a href="https://owl-media.co.uk/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-bible-gold transition-colors" aria-label="Owl Media">Owl Media</a></p>
       </div>
     </div>
   );
